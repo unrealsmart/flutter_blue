@@ -12,6 +12,7 @@
 #define NAMESPACE @"plugins.pauldemarco.com/flutter_blue"
 
 @interface FlutterBluePlugin : NSObject<FlutterPlugin, CBCentralManagerDelegate, CBPeripheralDelegate>
++ (CBCentralManager *)getCBCentralManager;
 @end
 
 @interface FlutterBlueStreamHandler : NSObject<FlutterStreamHandler>
