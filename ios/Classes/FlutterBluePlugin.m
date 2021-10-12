@@ -29,6 +29,8 @@ typedef NS_ENUM(NSUInteger, LogLevel) {
   debug = 7
 };
 
+static CBCentralManager *toOuterCentralManager;
+
 @interface FlutterBluePlugin ()
 @property(nonatomic, retain) NSObject<FlutterPluginRegistrar> *registrar;
 @property(nonatomic, retain) FlutterMethodChannel *channel;
@@ -49,6 +51,7 @@ typedef NS_ENUM(NSUInteger, LogLevel) {
   FlutterBluePlugin* instance = [[FlutterBluePlugin alloc] init];
   instance.channel = channel;
   instance.centralManager = [[CBCentralManager alloc] initWithDelegate:instance queue:nil];
+  toOuterCentralManager = instance.centralManager;
   instance.scannedPeripherals = [NSMutableDictionary new];
   instance.servicesThatNeedDiscovered = [NSMutableArray new];
   instance.characteristicsThatNeedDiscovered = [NSMutableArray new];
@@ -60,6 +63,10 @@ typedef NS_ENUM(NSUInteger, LogLevel) {
   instance.stateStreamHandler = stateStreamHandler;
   
   [registrar addMethodCallDelegate:instance channel:channel];
+}
+
++ (CBCentralManager *)getCBCentralManager{
+    return toOuterCentralManager;
 }
 
 - (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
