@@ -87,10 +87,12 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
     private Result pendingResult;
     private ArrayList<String> macDeviceScanned = new ArrayList<>();
     private boolean allowDuplicates = false;
+    
+    public static FlutterBluePlugin instance;
 
     /** Plugin registration. */
     public static void registerWith(Registrar registrar) {
-        FlutterBluePlugin instance = new FlutterBluePlugin();
+        instance = new FlutterBluePlugin();
         Activity activity = registrar.activity();
         Application application = null;
         if (registrar.context() != null) {
