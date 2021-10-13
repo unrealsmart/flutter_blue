@@ -70,7 +70,7 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
 
     private EventChannel stateChannel;
     private BluetoothManager mBluetoothManager;
-    private BluetoothAdapter mBluetoothAdapter;
+    public BluetoothAdapter mBluetoothAdapter;
 
     private FlutterPluginBinding pluginBinding;
     private ActivityPluginBinding activityBinding;
