@@ -4,9 +4,9 @@
 
 package com.pauldemarco.flutter_blue;
 
-import android.app.Activity;
 import android.Manifest;
 import android.annotation.TargetApi;
+import android.app.Activity;
 import android.app.Application;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -14,7 +14,6 @@ import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
-import android.bluetooth.BluetoothGattServer;
 import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
@@ -32,17 +31,24 @@ import android.os.Build;
 import android.os.ParcelUuid;
 import android.util.Log;
 
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.goodix.ble.gr.toolbox.app.libfastdfu.DfuProgressCallback;
+import com.goodix.ble.gr.toolbox.app.libfastdfu.EasyDfu2;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
@@ -70,7 +76,7 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
 
     private EventChannel stateChannel;
     private BluetoothManager mBluetoothManager;
-    private BluetoothAdapter mBluetoothAdapter;
+    public BluetoothAdapter mBluetoothAdapter;
 
     private FlutterPluginBinding pluginBinding;
     private ActivityPluginBinding activityBinding;
@@ -471,6 +477,8 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
                     characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
                 }
 
+                Log.d(TAG, Arrays.toString(characteristic.getValue()));
+
                 if(!gattServer.writeCharacteristic(characteristic)){
                     result.error("write_characteristic_error", "writeCharacteristic failed", null);
                     return;
@@ -624,6 +632,42 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
                     result.error("requestMtu", e.getMessage(), e);
                 }
 
+                break;
+            }
+
+            case "startDFU":
+            {
+                // arguments
+                final String[] data = ((String)call.arguments).split(",");
+                Log.d(TAG, data[0]);
+                Log.d(TAG, data[1]);
+
+                // file exists
+                File file = new File(data[1]);
+                if (!new File(data[1]).exists()) {
+                    result.error("FileNotExists", data[1], this);
+                    break;
+                }
+
+                // get input stream
+                InputStream inputStream = null;
+                try {
+                    inputStream = new FileInputStream(file);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                // start easy dfu2
+                if (inputStream != null) {
+                    BluetoothDevice device = mBluetoothAdapter.getRemoteDevice(data[0]);
+                    if (device == null) {
+                        result.error("BluetoothDeviceFail", data[0], this);
+                        break;
+                    }
+                    EasyDfu2 dfu2 = new EasyDfu2();
+                    dfu2.setListener(mDfuProgressCallback);
+                    dfu2.startDfuInCopyMode(context, device, inputStream, 0x1020000);
+                }
                 break;
             }
 
@@ -979,6 +1023,46 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
                     invokeMethodUIThread("MtuSize", p.build().toByteArray());
                 }
             }
+        }
+    };
+
+    private final DfuProgressCallback mDfuProgressCallback = new DfuProgressCallback() {
+        @Override
+        public void onDfuStart() {
+            Log.d(TAG, "onDfuStart() called");
+            // dialog.setCancelable(false);
+            // dialog.show();
+            // dialog.setMessage("0%");
+            // dialog.setProgress(0);
+            invokeMethodUIThread("DfuStart", "ok".getBytes());
+        }
+
+        @Override
+        public void onDfuProgress(int progress) {
+            Log.d(TAG, "onDfuProgress() called with: i = [" + progress + "]");
+
+            int len = String.valueOf(progress).length();
+            byte[] b = new byte[len];
+            for (int i = len; i > 0; i--) {
+                b[(i - 1)] = (byte)(progress >> 8 * (len - i) & 0xFF);
+            }
+            invokeMethodUIThread("DfuProgress", b);
+        }
+
+        @Override
+        public void onDfuComplete() {
+            Log.d(TAG, "onDfuComplete() called");
+            // dialog.dismiss();
+            // Toast.makeText(this, "升级完成", Toast.LENGTH_LONG).show();
+            invokeMethodUIThread("DfuComplete", "ok".getBytes());
+        }
+
+        @Override
+        public void onDfuError(String s, Error error) {
+            Log.d(TAG, "onDfuError() called with: s = [" + s + "], error = [" + error + "]");
+            // dialog.setCancelable(true);
+            // dialog.setMessage(s);
+            invokeMethodUIThread("DfuError", error.toString().getBytes());
         }
     };
 

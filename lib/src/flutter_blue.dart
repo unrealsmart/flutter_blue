@@ -196,6 +196,21 @@ class FlutterBlue {
       print(message);
     }
   }
+
+  /// OTA methods
+
+  Future startDFU({ String mac = '', String binPath = '' }) async {
+    await _channel.invokeMethod('startDFU', '$mac,$binPath');
+  }
+
+  Stream<dynamic> get DfuStart async* {
+    yield* _stateChannel.receiveBroadcastStream();
+  }
+
+  Stream<dynamic> get DfuProgress async* {
+    // yield await _channel.invokeMethod('progress');
+    yield* _stateChannel.receiveBroadcastStream();
+  }
 }
 
 /// Log levels for FlutterBlue
