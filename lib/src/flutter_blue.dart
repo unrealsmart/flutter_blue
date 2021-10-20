@@ -7,6 +7,7 @@ part of flutter_blue;
 class FlutterBlue {
   final MethodChannel _channel = const MethodChannel('$NAMESPACE/methods');
   final EventChannel _stateChannel = const EventChannel('$NAMESPACE/state');
+  final EventChannel _dfuChannel = const EventChannel('$NAMESPACE/event');
   final StreamController<MethodCall> _methodStreamController =
       new StreamController.broadcast(); // ignore: close_sinks
   Stream<MethodCall> get _methodStream => _methodStreamController
@@ -203,13 +204,12 @@ class FlutterBlue {
     await _channel.invokeMethod('startDFU', '$mac,$binPath');
   }
 
-  Stream<dynamic> get DfuStart async* {
-    yield* _stateChannel.receiveBroadcastStream();
+  Future channelDemo() async {
+    await _channel.invokeMethod('channelDemo');
   }
 
-  Stream<dynamic> get DfuProgress async* {
-    // yield await _channel.invokeMethod('progress');
-    yield* _stateChannel.receiveBroadcastStream();
+  Stream<dynamic> get dfu async* {
+    yield* _dfuChannel.receiveBroadcastStream();
   }
 }
 

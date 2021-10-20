@@ -28,9 +28,13 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelUuid;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
@@ -45,9 +49,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -87,6 +93,12 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
     static final private UUID CCCD_ID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
     private final Map<String, BluetoothDeviceCache> mDevices = new HashMap<>();
     private LogLevel logLevel = LogLevel.EMERGENCY;
+
+    // DFU
+    private EventChannel dfuChannel;
+    EasyDfu2 dfu2;
+    // 创建 UI 线程对象
+    private final Handler uiThreadHandler = new Handler(Looper.getMainLooper());
 
     // Pending call and result for startScan, in the case where permissions are needed
     private MethodCall pendingCall;
@@ -159,6 +171,8 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
             channel.setMethodCallHandler(this);
             stateChannel = new EventChannel(messenger, NAMESPACE + "/state");
             stateChannel.setStreamHandler(stateHandler);
+            dfuChannel = new EventChannel(messenger, NAMESPACE + "/event");
+            dfuChannel.setStreamHandler(dfuHandler);
             mBluetoothManager = (BluetoothManager) application.getSystemService(Context.BLUETOOTH_SERVICE);
             mBluetoothAdapter = mBluetoothManager.getAdapter();
             if (registrar != null) {
@@ -180,6 +194,8 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
         channel = null;
         stateChannel.setStreamHandler(null);
         stateChannel = null;
+        dfuChannel.setStreamHandler(null);
+        dfuChannel = null;
         mBluetoothAdapter = null;
         mBluetoothManager = null;
         application = null;
@@ -664,8 +680,9 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
                         result.error("BluetoothDeviceFail", data[0], this);
                         break;
                     }
-                    EasyDfu2 dfu2 = new EasyDfu2();
-                    dfu2.setListener(mDfuProgressCallback);
+                    dfu2 = new EasyDfu2();
+                    dfuChannel.setStreamHandler(dfuHandler);
+                    // dfu2.setListener();
                     dfu2.startDfuInCopyMode(context, device, inputStream, 0x1020000);
                 }
                 break;
@@ -1026,43 +1043,68 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
         }
     };
 
-    private final DfuProgressCallback mDfuProgressCallback = new DfuProgressCallback() {
-        @Override
-        public void onDfuStart() {
-            Log.d(TAG, "onDfuStart() called");
-            // dialog.setCancelable(false);
-            // dialog.show();
-            // dialog.setMessage("0%");
-            // dialog.setProgress(0);
-            invokeMethodUIThread("DfuStart", "ok".getBytes());
-        }
+    private final StreamHandler dfuHandler = new StreamHandler() {
+        private EventSink eventSink;
+        final Map<String, String> map = new HashMap<>();
 
-        @Override
-        public void onDfuProgress(int progress) {
-            Log.d(TAG, "onDfuProgress() called with: i = [" + progress + "]");
-
-            int len = String.valueOf(progress).length();
-            byte[] b = new byte[len];
-            for (int i = len; i > 0; i--) {
-                b[(i - 1)] = (byte)(progress >> 8 * (len - i) & 0xFF);
+        private final DfuProgressCallback mDfuProgressCallback = new DfuProgressCallback() {
+            @Override
+            public void onDfuStart() {
+                Log.d(TAG, "onDfuStart() called");
+                map.clear();
+                map.put("type", "start");
+                map.put("content", "OK");
+                uiThreadHandler.post(() -> eventSink.success(map));
             }
-            invokeMethodUIThread("DfuProgress", b);
+
+            @Override
+            public void onDfuProgress(int progress) {
+                Log.d(TAG, "onDfuProgress() called with: i = [" + progress + "]");
+                map.clear();
+                map.put("type", "progress");
+                map.put("content", String.valueOf(progress));
+                uiThreadHandler.post(() -> eventSink.success(map));
+            }
+
+            @Override
+            public void onDfuComplete() {
+                Log.d(TAG, "onDfuComplete() called");
+                map.clear();
+                map.put("type", "finish");
+                map.put("content", "OK");
+                uiThreadHandler.post(() -> eventSink.success(map));
+                uiThreadHandler.post(() -> eventSink.endOfStream());
+            }
+
+            @Override
+            public void onDfuError(String s, Error error) {
+                Log.d(TAG, "onDfuError() called with: s = [" + s + "], error = [" + error + "]");
+                map.clear();
+                map.put("type", "error");
+                map.put("content", error.toString());
+                uiThreadHandler.post(() -> eventSink.success(map));
+                uiThreadHandler.post(() -> eventSink.endOfStream());
+            }
+        };
+
+        @Override
+        public void onListen(Object arguments, EventSink events) {
+            Log.i(TAG, "EventChannel onListen successful!");
+            eventSink = events;
+            if (dfu2 != null) {
+                dfu2.setListener(mDfuProgressCallback);
+            } else {
+                map.clear();
+                map.put("type", "error");
+                map.put("content", "NOT DFU2 OBJECT");
+                uiThreadHandler.post(() -> eventSink.success(map));
+                uiThreadHandler.post(() -> eventSink.endOfStream());
+            }
         }
 
         @Override
-        public void onDfuComplete() {
-            Log.d(TAG, "onDfuComplete() called");
-            // dialog.dismiss();
-            // Toast.makeText(this, "升级完成", Toast.LENGTH_LONG).show();
-            invokeMethodUIThread("DfuComplete", "ok".getBytes());
-        }
-
-        @Override
-        public void onDfuError(String s, Error error) {
-            Log.d(TAG, "onDfuError() called with: s = [" + s + "], error = [" + error + "]");
-            // dialog.setCancelable(true);
-            // dialog.setMessage(s);
-            invokeMethodUIThread("DfuError", error.toString().getBytes());
+        public void onCancel(Object arguments) {
+            //
         }
     };
 
