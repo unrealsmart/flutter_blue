@@ -683,7 +683,7 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
                     dfu2 = new EasyDfu2();
                     dfuChannel.setStreamHandler(dfuHandler);
                     // dfu2.setListener();
-                    dfu2.startDfuInCopyMode(context, device, inputStream, 0x1020000);
+                    dfu2.startDfuInCopyMode(context, device, inputStream, 0x1060000);
                 }
                 break;
             }
