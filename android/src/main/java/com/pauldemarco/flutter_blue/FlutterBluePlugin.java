@@ -47,6 +47,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -348,6 +349,15 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
                     gattServer.disconnect();
                     if(state == BluetoothProfile.STATE_DISCONNECTED) {
                         gattServer.close();
+                        // refresh gatt
+                        try {
+                            Method localMethod = gattServer.getClass().getMethod("refresh", new Class[0]);
+                            if (localMethod != null) {
+                                localMethod.invoke(gattServer, new Object[0]);
+                            }
+                        } catch (Exception localException) {
+                            Log.i(TAG, "Failed to refresh GATT service");
+                        }
                     }
                 }
                 result.success(null);
@@ -493,7 +503,7 @@ public class FlutterBluePlugin implements FlutterPlugin, ActivityAware, MethodCa
                     characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
                 }
 
-                Log.d(TAG, Arrays.toString(characteristic.getValue()));
+                Log.d(TAG, characteristic.toString());
 
                 if(!gattServer.writeCharacteristic(characteristic)){
                     result.error("write_characteristic_error", "writeCharacteristic failed", null);
