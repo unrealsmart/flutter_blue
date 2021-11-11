@@ -36,6 +36,28 @@ class FlutterBlue {
   /// Checks if Bluetooth functionality is turned on
   Future<bool> get isOn => _channel.invokeMethod('isOn').then<bool>((d) => d);
 
+  /// Tries to turn on Bluetooth (Android only),
+  ///
+  /// Returns true if bluetooth is being turned on.
+  /// You have to listen for a stateChange to ON to ensure bluetooth is already running
+  ///
+  /// Returns false if an error occured or bluetooth is already running
+  ///
+  Future<bool> turnOn() {
+    return _channel.invokeMethod('turnOn').then<bool>((d) => d);
+  }
+
+  /// Tries to turn off Bluetooth (Android only),
+  ///
+  /// Returns true if bluetooth is being turned off.
+  /// You have to listen for a stateChange to OFF to ensure bluetooth is turned off
+  ///
+  /// Returns false if an error occured
+  ///
+  Future<bool> turnOff() {
+    return _channel.invokeMethod('turnOff').then<bool>((d) => d);
+  }
+
   BehaviorSubject<bool> _isScanning = BehaviorSubject.seeded(false);
   Stream<bool> get isScanning => _isScanning.stream;
 
@@ -69,6 +91,15 @@ class FlutterBlue {
   Future<List<BluetoothDevice>> get connectedDevices {
     return _channel
         .invokeMethod('getConnectedDevices')
+        .then((buffer) => protos.ConnectedDevicesResponse.fromBuffer(buffer))
+        .then((p) => p.devices)
+        .then((p) => p.map((d) => BluetoothDevice.fromProto(d)).toList());
+  }
+
+  /// Retrieve a list of bonded devices (Android only)
+  Future<List<BluetoothDevice>> get bondedDevices {
+    return _channel
+        .invokeMethod('getBondedDevices')
         .then((buffer) => protos.ConnectedDevicesResponse.fromBuffer(buffer))
         .then((p) => p.devices)
         .then((p) => p.map((d) => BluetoothDevice.fromProto(d)).toList());
@@ -132,7 +163,7 @@ class FlutterBlue {
         .map((buffer) => new protos.ScanResult.fromBuffer(buffer))
         .map((p) {
       final result = new ScanResult.fromProto(p);
-      final list = _scanResults.value ?? [];
+      final list = _scanResults.value;
       int index = list.indexOf(result);
       if (index != -1) {
         list[index] = result;

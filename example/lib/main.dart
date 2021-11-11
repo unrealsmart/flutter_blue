@@ -3,11 +3,13 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blue/flutter_blue.dart';
-import 'package:flutter_blue_example/widgets.dart';
+
+import 'widgets.dart';
 
 void main() {
   runApp(FlutterBlueApp());
@@ -54,8 +56,14 @@ class BluetoothOffScreen extends StatelessWidget {
               'Bluetooth Adapter is ${state != null ? state.toString().substring(15) : 'not available'}.',
               style: Theme.of(context)
                   .primaryTextTheme
-                  .subhead
+                  .subtitle2
                   ?.copyWith(color: Colors.white),
+            ),
+            ElevatedButton(
+              child: Text('TURN ON'),
+              onPressed: Platform.isAndroid
+                  ? () => FlutterBlue.instance.turnOn()
+                  : null,
             ),
           ],
         ),
@@ -70,6 +78,18 @@ class FindDevicesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('Find Devices'),
+        actions: [
+          ElevatedButton(
+            child: Text('TURN OFF'),
+            style: ElevatedButton.styleFrom(
+              primary: Colors.black,
+              onPrimary: Colors.white,
+            ),
+            onPressed: Platform.isAndroid
+                ? () => FlutterBlue.instance.turnOff()
+                : null,
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () =>
@@ -92,7 +112,7 @@ class FindDevicesScreen extends StatelessWidget {
                               builder: (c, snapshot) {
                                 if (snapshot.data ==
                                     BluetoothDeviceState.connected) {
-                                  return RaisedButton(
+                                  return ElevatedButton(
                                     child: Text('OPEN'),
                                     onPressed: () => Navigator.of(context).push(
                                         MaterialPageRoute(
@@ -227,7 +247,7 @@ class DeviceScreen extends StatelessWidget {
                   text = snapshot.data.toString().substring(21).toUpperCase();
                   break;
               }
-              return FlatButton(
+              return TextButton(
                   onPressed: onPressed,
                   child: Text(
                     text,

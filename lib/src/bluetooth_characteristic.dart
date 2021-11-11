@@ -24,10 +24,10 @@ class BluetoothCharacteristic {
   BehaviorSubject<List<int>> _value;
   Stream<List<int>> get value => Rx.merge([
         _value.stream,
-        _onValueChangedStream,
+        onValueChangedStream,
       ]);
 
-  List<int> get lastValue => _value.value ?? [];
+  List<int> get lastValue => _value.value;
 
   BluetoothCharacteristic.fromProto(protos.BluetoothCharacteristic p)
       : uuid = new Guid(p.uuid),
@@ -57,7 +57,7 @@ class BluetoothCharacteristic {
         return c;
       });
 
-  Stream<List<int>> get _onValueChangedStream =>
+  Stream<List<int>> get onValueChangedStream =>
       _onCharacteristicChangedStream.map((c) => c.lastValue);
 
   void _updateDescriptors(List<BluetoothDescriptor> newDescriptors) {
