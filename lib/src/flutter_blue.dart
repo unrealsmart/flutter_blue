@@ -163,14 +163,14 @@ class FlutterBlue {
         .map((buffer) => new protos.ScanResult.fromBuffer(buffer))
         .map((p) {
       final result = new ScanResult.fromProto(p);
-      final list = _scanResults.value;
-      int index = list.indexOf(result);
-      if (index != -1) {
-        list[index] = result;
-      } else {
-        list.add(result);
-      }
-      _scanResults.add(list);
+      // final list = _scanResults.value;
+      // int index = list.indexOf(result);
+      // if (index != -1) {
+      //   list[index] = result;
+      // } else {
+      //   list.add(result);
+      // }
+      _scanResults.add([result]);
       return result;
     });
   }
@@ -231,7 +231,7 @@ class FlutterBlue {
 
   /// OTA methods
 
-  Future startDFU({ String mac = '', String binPath = '' }) async {
+  Future startDFU({String mac = '', String binPath = ''}) async {
     await _channel.invokeMethod('startDFU', '$mac,$binPath');
   }
 
